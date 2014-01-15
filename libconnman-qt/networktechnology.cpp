@@ -43,44 +43,52 @@ NetworkTechnology::~NetworkTechnology()
 
 void NetworkTechnology::init(const QString &path)
 {
-    m_path = path;
+    if (path != m_path) {
+        m_path = path;
 
-    if (m_technology) {
-        delete m_technology;
-        m_technology = 0;
-        m_propertiesCache.clear();
-    }
-    if (m_path.isEmpty())
-        return;
-    m_technology = new NetConnmanTechnologyInterface("net.connman", path,
-        QDBusConnection::systemBus(), this);
-    if (!m_technology->isValid()) {
-        qWarning() << "Invalid technology: " << path;
-        qFatal("Cannot init with invalid technology");
-    }
-
-    if (m_propertiesCache.isEmpty()) {
-        QDBusPendingReply<QVariantMap> reply;
-        reply = m_technology->GetProperties();
-        reply.waitForFinished();
-        if (reply.isError()) {
-            qDebug() << reply.error().message();
-        } else {
-            m_propertiesCache = reply.value();
-            Q_FOREACH(const QString &name,m_propertiesCache.keys()) {
-                emitPropertyChange(name,m_propertiesCache[name]);
-            }
+        if (m_technology) {
+            delete m_technology;
+            m_technology = 0;
+            m_propertiesCache.clear();
         }
+        if (m_path.isEmpty())
+            return;
+        m_technology = new NetConnmanTechnologyInterface("net.connman", path,
+                                                         QDBusConnection::systemBus(), this);
+        if (!m_technology->isValid()) {
+            qWarning() << "Invalid technology: " << path;
+            qFatal("Cannot init with invalid technology");
+        }
+        Q_EMIT pathChanged(path);
+        if (m_propertiesCache.isEmpty()) {
+            QDBusPendingReply<QVariantMap> reply = m_technology->GetProperties();
+            // propertiesReply
+            QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(reply, this);
+            connect(watcher,
+                    SIGNAL(finished(QDBusPendingCallWatcher*)),
+                    this,
+                    SLOT(propertiesReply(QDBusPendingCallWatcher*)));
+
+            //        QDBusPendingReply<QVariantMap> reply;
+            //        reply = m_technology->GetProperties();
+            //        reply.waitForFinished();
+            //        if (reply.isError()) {
+            //            qDebug() << reply.error().message();
+            //        } else {
+            //            m_propertiesCache = reply.value();
+            //            Q_FOREACH(const QString &name,m_propertiesCache.keys()) {
+            //                emitPropertyChange(name,m_propertiesCache[name]);
+            //            }
+            //        }
+        }
+
+        connect(m_technology,
+                SIGNAL(PropertyChanged(const QString&, const QDBusVariant&)),
+                this,
+                SLOT(propertyChanged(const QString&, const QDBusVariant&)));
+        //    Q_EMIT poweredChanged(powered());
+        //    Q_EMIT connectedChanged(connected());
     }
-
-    Q_EMIT poweredChanged(powered());
-    Q_EMIT connectedChanged(connected());
-
-    connect(m_technology,
-            SIGNAL(PropertyChanged(const QString&, const QDBusVariant&)),
-            this,
-            SLOT(propertyChanged(const QString&, const QDBusVariant&)));
-
 }
 
 // Public API
@@ -130,6 +138,8 @@ const QString NetworkTechnology::objPath() const
 
 void NetworkTechnology::setPowered(const bool &powered)
 {
+    qDebug() << powered;
+
     Q_ASSERT(m_technology);
     m_technology->SetProperty(Powered, QDBusVariant(QVariant(powered)));
 }
@@ -139,7 +149,7 @@ void NetworkTechnology::scan()
     Q_ASSERT(m_technology);
 
     QDBusPendingReply<> reply = m_technology->Scan();
-    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(reply, m_technology);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(reply, this);
     connect(watcher, SIGNAL(finished(QDBusPendingCallWatcher*)),
             this, SLOT(scanReply(QDBusPendingCallWatcher*)));
 }
@@ -147,6 +157,7 @@ void NetworkTechnology::scan()
 // Private
 void NetworkTechnology::emitPropertyChange(const QString &name, const QVariant &value)
 {
+    qDebug() << name << value;
     if (name == Powered) {
         Q_EMIT poweredChanged(value.toBool());
     } else if (name == Connected) {
@@ -240,11 +251,28 @@ QString NetworkTechnology::tetheringPassphrase() const
         return m_propertiesCache[NetworkTechnology::TetheringPassphrase].toString();
     else
         return QString();
-
 }
 
 void NetworkTechnology::setTetheringPassphrase(const QString &pass)
 {
     if (m_technology)
         m_technology->SetProperty(TetheringPassphrase, QDBusVariant(QVariant(pass)));
+}
+
+void NetworkTechnology::propertiesReply(QDBusPendingCallWatcher *call)
+{
+    QDBusPendingReply<QVariantMap> reply = *call;
+    if (reply.isError()) {
+        qDebug() << reply.error().message();
+    } else {
+        m_propertiesCache = reply.value();
+        Q_FOREACH(const QString &name,m_propertiesCache.keys()) {
+            emitPropertyChange(name,m_propertiesCache[name]);
+        }
+    }
+
+    Q_EMIT poweredChanged(powered());
+    Q_EMIT connectedChanged(connected());
+
+    call->deleteLater();
 }

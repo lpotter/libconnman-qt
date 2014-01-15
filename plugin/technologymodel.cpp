@@ -130,6 +130,7 @@ bool TechnologyModel::changesInhibited() const
 
 void TechnologyModel::setPowered(const bool &powered)
 {
+    qDebug() << powered << m_tech;
     if (m_tech) {
         m_tech->setPowered(powered);
     } else {
@@ -140,7 +141,7 @@ void TechnologyModel::setPowered(const bool &powered)
 void TechnologyModel::refresh()
 {
     QStringList netTypes = m_manager->technologiesList();
-
+    qDebug() << netTypes.count();
     bool oldPowered(false);
     bool oldConnected(false);
 
@@ -167,6 +168,7 @@ void TechnologyModel::refresh()
     m_tech = m_manager->getTechnology(m_techname);
 
     if (!m_tech) {
+        qDebug() << "no such tech object";
         return;
     } else {
         Q_EMIT nameChanged(m_techname);
@@ -243,6 +245,8 @@ void TechnologyModel::updateTechnologies()
 
 void TechnologyModel::managerAvailabilityChanged(bool available)
 {
+    qDebug() << available;
+
     Q_EMIT availabilityChanged(available);
 
     if (!available && m_scanning) {
@@ -313,6 +317,7 @@ void TechnologyModel::updateServiceList()
 
 void TechnologyModel::changedPower(bool b)
 {
+    qDebug() << b;
     NetworkTechnology *tech = qobject_cast<NetworkTechnology *>(sender());
     if (tech->type() != m_tech->type())
         return;

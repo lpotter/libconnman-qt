@@ -146,6 +146,8 @@ private:
     static const QString Ethernet;
     static const QString Roaming;
     bool isConnected;
+    bool isReady;
+    bool savedService;
 
 private Q_SLOTS:
     void updateProperty(const QString &name, const QDBusVariant &value);
@@ -153,6 +155,7 @@ private Q_SLOTS:
 
     void handleConnectReply(QDBusPendingCallWatcher *call);
     void handleRemoveReply(QDBusPendingCallWatcher *watcher);
+    void propertiesReply(QDBusPendingCallWatcher *call);
 
 private:
     Q_DISABLE_COPY(NetworkService);

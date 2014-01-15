@@ -59,7 +59,8 @@ const QString NetworkService::Roaming("Roaming");
 NetworkService::NetworkService(const QString &path, const QVariantMap &properties, QObject* parent)
   : QObject(parent),
     m_service(NULL),
-    m_path(QString())
+    m_path(QString()),
+    isReady(false)
 {
     qRegisterMetaType<NetworkService *>();
 
@@ -79,56 +80,60 @@ NetworkService::~NetworkService() {}
 
 const QString NetworkService::name() const
 {
-    if (m_propertiesCache.contains(Name))
+    qDebug() << isReady;
+
+    if (isReady && savedService || m_propertiesCache.contains(Name))
         return m_propertiesCache.value(Name).toString();
     return QString();
 }
 
 const QString NetworkService::state() const
 {
-    if (m_propertiesCache.contains(State))
+    qDebug() << m_propertiesCache.contains(State) << m_path;
+
+    if (isReady && m_propertiesCache.contains(State))
         return m_propertiesCache.value(State).toString();
-    return QString();
+    return QLatin1String("idle");
 }
 
 const QString NetworkService::error() const
 {
-    if (m_propertiesCache.contains(Error))
+    if (isReady && m_propertiesCache.contains(Error))
         return m_propertiesCache.value(Error).toString();
     return QString();
 }
 
 const QString NetworkService::type() const
 {
-    if (m_propertiesCache.contains(Type))
+    if (isReady && m_propertiesCache.contains(Type))
         return m_propertiesCache.value(Type).toString();
     return QString();
 }
 
 const QStringList NetworkService::security() const
 {
-    if (m_propertiesCache.contains(Security))
+    if (isReady && m_propertiesCache.contains(Security))
         return m_propertiesCache.value(Security).toStringList();
     return QStringList();
 }
 
 uint NetworkService::strength() const
 {
-    if (m_propertiesCache.contains(Strength))
+    if (isReady && m_propertiesCache.contains(Strength))
         return m_propertiesCache.value(Strength).toUInt();
     return 0;
 }
 
 bool NetworkService::favorite() const
 {
-    if (m_propertiesCache.contains(Favorite))
+    if (isReady && m_propertiesCache.contains(Favorite))
         return m_propertiesCache.value(Favorite).toBool();
     return false;
 }
 
 bool NetworkService::autoConnect() const
 {
-    if (m_propertiesCache.contains(AutoConnect))
+    if (isReady && m_propertiesCache.contains(AutoConnect))
         return m_propertiesCache.value(AutoConnect).toBool();
     return false;
 }
@@ -140,84 +145,84 @@ const QString NetworkService::path() const
 
 const QVariantMap NetworkService::ipv4() const
 {
-    if (m_propertiesCache.contains(IPv4))
+    if (isReady && m_propertiesCache.contains(IPv4))
         return qdbus_cast<QVariantMap>(m_propertiesCache.value(IPv4));
     return QVariantMap();
 }
 
 const QVariantMap NetworkService::ipv4Config() const
 {
-    if (m_propertiesCache.contains(IPv4Config))
+    if (isReady && m_propertiesCache.contains(IPv4Config))
         return qdbus_cast<QVariantMap>(m_propertiesCache.value(IPv4Config));
     return QVariantMap();
 }
 
 const QVariantMap NetworkService::ipv6() const
 {
-    if (m_propertiesCache.contains(IPv6))
+    if (isReady && m_propertiesCache.contains(IPv6))
         return qdbus_cast<QVariantMap>(m_propertiesCache.value(IPv6));
     return QVariantMap();
 }
 
 const QVariantMap NetworkService::ipv6Config() const
 {
-    if (m_propertiesCache.contains(IPv6Config))
+    if (isReady && m_propertiesCache.contains(IPv6Config))
         return qdbus_cast<QVariantMap>(m_propertiesCache.value(IPv6Config));
     return QVariantMap();
 }
 
 const QStringList NetworkService::nameservers() const
 {
-    if (m_propertiesCache.contains(Nameservers))
+    if (isReady && m_propertiesCache.contains(Nameservers))
         return m_propertiesCache.value(Nameservers).toStringList();
     return QStringList();
 }
 
 const QStringList NetworkService::nameserversConfig() const
 {
-    if (m_propertiesCache.contains(NameserversConfig))
+    if (isReady && m_propertiesCache.contains(NameserversConfig))
         return m_propertiesCache.value(NameserversConfig).toStringList();
     return QStringList();
 }
 
 const QStringList NetworkService::domains() const
 {
-    if (m_propertiesCache.contains(Domains))
+    if (isReady && m_propertiesCache.contains(Domains))
         return m_propertiesCache.value(Domains).toStringList();
     return QStringList();
 }
 
 const QStringList NetworkService::domainsConfig() const
 {
-    if (m_propertiesCache.contains(DomainsConfig))
+    if (isReady && m_propertiesCache.contains(DomainsConfig))
         return m_propertiesCache.value(DomainsConfig).toStringList();
     return QStringList();
 }
 
 const QVariantMap NetworkService::proxy() const
 {
-    if (m_propertiesCache.contains(Proxy))
+    if (isReady && m_propertiesCache.contains(Proxy))
         return qdbus_cast<QVariantMap>(m_propertiesCache.value(Proxy));
     return QVariantMap();
 }
 
 const QVariantMap NetworkService::proxyConfig() const
 {
-    if (m_propertiesCache.contains(ProxyConfig))
+    if (isReady && m_propertiesCache.contains(ProxyConfig))
         return qdbus_cast<QVariantMap>(m_propertiesCache.value(ProxyConfig));
     return QVariantMap();
 }
 
 const QVariantMap NetworkService::ethernet() const
 {
-    if (m_propertiesCache.contains(Ethernet))
+    if (isReady && m_propertiesCache.contains(Ethernet))
         return qdbus_cast<QVariantMap>(m_propertiesCache.value(Ethernet));
     return QVariantMap();
 }
 
 bool NetworkService::roaming() const
 {
-    if (m_propertiesCache.contains(Roaming))
+    if (isReady && m_propertiesCache.contains(Roaming))
         return m_propertiesCache.value(Roaming).toBool();
     return false;
 }
@@ -245,7 +250,7 @@ void NetworkService::requestConnect()
     QDBusPendingReply<> conn_reply = m_service->Connect();
     m_service->setTimeout(old_timeout);
 
-    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(conn_reply, m_service);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(conn_reply, this);
     connect(watcher,
             SIGNAL(finished(QDBusPendingCallWatcher*)),
             this,
@@ -266,7 +271,7 @@ void NetworkService::remove()
         return;
 
     QDBusPendingReply<> reply = m_service->Remove();
-    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(reply, m_service);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(reply, this);
     connect(watcher, SIGNAL(finished(QDBusPendingCallWatcher*)),
             this, SLOT(handleRemoveReply(QDBusPendingCallWatcher*)));
 }
@@ -352,11 +357,13 @@ void NetworkService::handleRemoveReply(QDBusPendingCallWatcher *watcher)
         // Remove /net/connman/service/ from front of string.
         manager.RemoveSavedService(m_path.mid(21));
     }
+    watcher->deleteLater();
 }
 
 void NetworkService::emitPropertyChange(const QString &name, const QVariant &value)
 {
     m_propertiesCache[name] = value;
+    qDebug() << name;
 
     if (name == Name) {
         Q_EMIT nameChanged(value.toString());
@@ -415,6 +422,7 @@ void NetworkService::updateProperty(const QString &name, const QDBusVariant &val
 
 void NetworkService::updateProperties(const QVariantMap &properties)
 {
+    qDebug();
     QVariantMap::const_iterator it = properties.constBegin(), end = properties.constEnd();
     for ( ; it != end; ++it) {
         emitPropertyChange(it.key(), it.value());
@@ -423,6 +431,7 @@ void NetworkService::updateProperties(const QVariantMap &properties)
 
 void NetworkService::setPath(const QString &path)
 {
+    qDebug() << path << m_path;
     if (path != m_path) {
         m_path = path;
 
@@ -441,19 +450,43 @@ void NetworkService::setPath(const QString &path)
         if (!m_service->isValid()) {
             return;
         }
-
+        if (path == "/")
+            savedService = true;
+        Q_EMIT pathChanged(path);
         if (m_propertiesCache.isEmpty() && path.count() > 2) {
             QDBusPendingReply<QVariantMap> reply = m_service->GetProperties();
-            reply.waitForFinished();
-            if (!reply.isError()) {
-                m_propertiesCache = reply.value();
-                updateProperties(reply.value());
-            }
+            // propertiesReply
+            QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(reply, this);
+            connect(watcher,
+                    SIGNAL(finished(QDBusPendingCallWatcher*)),
+                    this,
+                    SLOT(propertiesReply(QDBusPendingCallWatcher*)));
+//            reply.waitForFinished();
+//            if (!reply.isError()) {
+//                m_propertiesCache = reply.value();
+//                updateProperties(reply.value());
+//            }
         }
 
         connect(m_service, SIGNAL(PropertyChanged(QString,QDBusVariant)),
                 this, SLOT(updateProperty(QString,QDBusVariant)));
     }
+}
+
+void NetworkService::propertiesReply(QDBusPendingCallWatcher *call)
+{
+    qDebug();
+    QDBusPendingReply<QVariantMap> reply = *call;
+    if (!reply.isError()) {
+        m_propertiesCache = reply.value();
+        updateProperties(reply.value());
+        isReady = true;
+    } else {
+        qDebug() << reply.error().message();
+        if (path() == "/") //saved service
+            isReady = true;
+    }
+    call->deleteLater();
 }
 
 bool NetworkService::connected()
